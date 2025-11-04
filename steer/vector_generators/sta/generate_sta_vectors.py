@@ -5,7 +5,7 @@ import argparse
 from tqdm import tqdm
 import os
 from dotenv import load_dotenv
-from huggingface_hub import snapshot_download
+from huggingface_hub import hf_hub_download, list_repo_files
 
 from .generate_sta_hparam import STAHyperParams
 from typing import List
@@ -21,7 +21,7 @@ HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
 
 def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
     """
-    Download SAE from HuggingFace Hub - ONLY downloads the specific layer directory needed.
+    Download SAE from HuggingFace Hub - Downloads only the specific layer directory needed.
     
     Args:
         hf_path: HuggingFace path in format "repo_id:path_within_repo" or just "repo_id/path"
@@ -61,20 +61,44 @@ def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
     print(f"Only downloading layer directory: {layer_dir}/*")
     
     try:
-        # Use allow_patterns to only download files in the specific layer directory
-        # This prevents downloading all layers - only downloads the specified subpath
-        downloaded_path = snapshot_download(
-            repo_id=repo_id,
-            local_dir=os.path.join(cache_dir, repo_id.replace("/", "_")),
-            local_dir_use_symlinks=False,
-            token=HUGGINGFACE_TOKEN,
-            allow_patterns=[f"{subpath}/**", f"{subpath}/*"],  # Only download the specific subpath directory
-        )
+        # First, list files in the repo to find files in our target subpath
+        print(f"Scanning repository for files in {subpath}...")
+        all_files = list_repo_files(repo_id=repo_id, token=HUGGINGFACE_TOKEN)
+        
+        # Filter files to only those in our subpath
+        target_files = [f for f in all_files if f.startswith(subpath + "/") or f == subpath]
+        
+        if not target_files:
+            print(f"Warning: No files found matching {subpath}. Checking repository structure...")
+            # Try to find similar paths
+            layer_files = [f for f in all_files if layer_dir in f]
+            if layer_files:
+                print(f"Found {len(layer_files)} files with '{layer_dir}' in path. First few:")
+                for f in layer_files[:5]:
+                    print(f"  - {f}")
+            raise ValueError(f"No files found in subpath {subpath} in repo {repo_id}")
+        
+        print(f"Found {len(target_files)} files to download")
+        
+        # Download each file individually to the target directory
+        target_dir = os.path.join(cache_dir, repo_id.replace("/", "_"), subpath)
+        os.makedirs(target_dir, exist_ok=True)
+        
+        for file_path in target_files:
+            # Download file
+            downloaded_file = hf_hub_download(
+                repo_id=repo_id,
+                filename=file_path,
+                local_dir=os.path.join(cache_dir, repo_id.replace("/", "_")),
+                local_dir_use_symlinks=False,
+                token=HUGGINGFACE_TOKEN,
+            )
+            print(f"Downloaded: {file_path}")
         
         # Return the specific subdirectory path
-        sae_path = os.path.join(downloaded_path, subpath)
+        sae_path = os.path.join(cache_dir, repo_id.replace("/", "_"), subpath)
         if not os.path.exists(sae_path):
-            raise ValueError(f"SAE subpath {subpath} not found in downloaded repo {repo_id}")
+            raise ValueError(f"SAE subpath {subpath} not found after download in repo {repo_id}")
         
         print(f"Successfully downloaded SAE to: {sae_path}")
         return sae_path
