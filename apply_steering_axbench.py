@@ -82,6 +82,10 @@ def get_test_prompts(test_data, concept_id, limit=None):
     
     print(f"Found {len(test_examples)} test examples for concept_id {concept_id}")
     
+    # Get concept description from first example
+    concept_description = test_examples[0].get('output_concept', 'N/A')
+    print(f"Concept being steered: {concept_description}")
+    
     # Apply limit if specified
     if limit is not None and limit > 0:
         test_examples = test_examples[:limit]
@@ -99,7 +103,7 @@ def get_test_prompts(test_data, concept_id, limit=None):
             'expected_response': expected_response
         })
     
-    return generation_data
+    return generation_data, concept_description
 
 
 def main_func(top_cfg: DictConfig, args):
@@ -127,7 +131,11 @@ def main_func(top_cfg: DictConfig, args):
     train_data, test_data = load_axbench_data(args.hf_path, load_test=True)
     
     # Get test prompts
-    generation_data = get_test_prompts(test_data, args.concept_id, limit=args.limit)
+    generation_data, concept_description = get_test_prompts(test_data, args.concept_id, limit=args.limit)
+    
+    print(f"\n{'='*60}")
+    print(f"Concept Description: {concept_description}")
+    print(f"{'='*60}\n")
     
     # Update config
     top_cfg.model_name_or_path = args.model_name
@@ -208,6 +216,7 @@ def main_func(top_cfg: DictConfig, args):
         for result in results:
             result['multiplier'] = multiplier
             result['method'] = args.method
+            result['concept_description'] = concept_description
             input_key = result.get('input', '')
             result['expected_response'] = expected_responses.get(input_key, '')
             # pred is a list, get first element if available
