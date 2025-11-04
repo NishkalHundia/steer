@@ -21,10 +21,11 @@ HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
 
 def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
     """
-    Download SAE from HuggingFace Hub.
+    Download SAE from HuggingFace Hub - ONLY downloads the specific layer directory needed.
     
     Args:
         hf_path: HuggingFace path in format "repo_id:path_within_repo" or just "repo_id/path"
+                 Example: "google/gemma-scope-9b-pt-res:layer_20/width_16k/average_l0_114"
         local_cache_dir: Optional local directory to cache downloads
     
     Returns:
@@ -41,6 +42,12 @@ def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
         repo_id = hf_path
         subpath = ''
     
+    if not subpath:
+        raise ValueError(f"SAE subpath must be specified in format 'repo_id:subpath'. Got: {hf_path}")
+    
+    # Extract layer directory name from subpath (e.g., "layer_20" from "layer_20/width_16k/average_l0_114")
+    layer_dir = subpath.split('/')[0] if '/' in subpath else subpath
+    
     # Use local cache or temp directory
     if local_cache_dir is None:
         cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "saes")
@@ -49,24 +56,28 @@ def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
     
     os.makedirs(cache_dir, exist_ok=True)
     
-    # Download from HuggingFace
+    # Download ONLY the specific layer directory from HuggingFace
     print(f"Downloading SAE from HuggingFace: {repo_id}/{subpath}")
+    print(f"Only downloading layer directory: {layer_dir}/*")
+    
     try:
+        # Use allow_patterns to only download files in the specific layer directory
+        # This prevents downloading all layers - only downloads the specified subpath
         downloaded_path = snapshot_download(
             repo_id=repo_id,
             local_dir=os.path.join(cache_dir, repo_id.replace("/", "_")),
             local_dir_use_symlinks=False,
             token=HUGGINGFACE_TOKEN,
+            allow_patterns=[f"{subpath}/**", f"{subpath}/*"],  # Only download the specific subpath directory
         )
         
-        # If subpath specified, return the subdirectory
-        if subpath:
-            sae_path = os.path.join(downloaded_path, subpath)
-            if not os.path.exists(sae_path):
-                raise ValueError(f"SAE subpath {subpath} not found in downloaded repo {repo_id}")
-            return sae_path
-        else:
-            return downloaded_path
+        # Return the specific subdirectory path
+        sae_path = os.path.join(downloaded_path, subpath)
+        if not os.path.exists(sae_path):
+            raise ValueError(f"SAE subpath {subpath} not found in downloaded repo {repo_id}")
+        
+        print(f"Successfully downloaded SAE to: {sae_path}")
+        return sae_path
     except ImportError:
         raise ImportError("huggingface_hub is required for downloading SAEs. Install with: pip install huggingface_hub")
     except Exception as e:
