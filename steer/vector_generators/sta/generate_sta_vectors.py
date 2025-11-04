@@ -22,10 +22,13 @@ HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
 def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
     """
     Download SAE from HuggingFace Hub - Downloads only the specific layer directory needed.
+    Supports canonical SAE paths which are automatically resolved to actual paths.
     
     Args:
-        hf_path: HuggingFace path in format "repo_id:path_within_repo" or just "repo_id/path"
-                 Example: "google/gemma-scope-9b-pt-res:layer_20/width_16k/average_l0_114"
+        hf_path: HuggingFace path in format "repo_id:path_within_repo" or "repo_id-canonical:layer_X/width_Y/canonical"
+                 Examples:
+                 - "google/gemma-scope-9b-pt-res:layer_20/width_131k/average_l0_114" (direct path)
+                 - "google/gemma-scope-9b-pt-res-canonical:layer_20/width_16k/canonical" (canonical - auto-resolved)
         local_cache_dir: Optional local directory to cache downloads
     
     Returns:
@@ -45,7 +48,38 @@ def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
     if not subpath:
         raise ValueError(f"SAE subpath must be specified in format 'repo_id:subpath'. Got: {hf_path}")
     
-    # Extract layer directory name from subpath (e.g., "layer_20" from "layer_20/width_16k/average_l0_114")
+    # Check if this is a canonical SAE path and resolve it
+    if subpath.endswith('/canonical') or '/canonical' in subpath:
+        print(f"Detected canonical SAE path: {subpath}")
+        try:
+            from sae_lens.toolkit.pretrained_saes_directory import get_pretrained_saes_directory
+            
+            # Convert repo_id to release name (remove google/ prefix if present, keep canonical suffix)
+            release_name = repo_id.replace('google/', '')
+            if release_name not in ['gemma-scope-9b-pt-res-canonical', 'gemma-scope-9b-it-res-canonical']:
+                # Try adding -canonical if not present
+                if '-canonical' not in release_name:
+                    release_name = release_name + '-canonical'
+            
+            sae_directory = get_pretrained_saes_directory()
+            
+            if release_name in sae_directory:
+                sae_info = sae_directory[release_name]
+                if subpath in sae_info.saes_map:
+                    # Resolve canonical path to actual path
+                    actual_path = sae_info.saes_map[subpath]
+                    actual_repo_id = sae_info.repo_id
+                    print(f"Resolved canonical path '{subpath}' to actual path '{actual_path}'")
+                    subpath = actual_path
+                    repo_id = actual_repo_id
+                else:
+                    raise ValueError(f"Canonical SAE ID '{subpath}' not found in release '{release_name}'. Available IDs: {list(sae_info.saes_map.keys())[:10]}...")
+            else:
+                print(f"Warning: Release '{release_name}' not found in SAE directory. Trying direct download...")
+        except Exception as e:
+            print(f"Warning: Could not resolve canonical path: {e}. Trying direct download...")
+    
+    # Extract layer directory name from subpath (e.g., "layer_20" from "layer_20/width_16k/average_l0_68")
     layer_dir = subpath.split('/')[0] if '/' in subpath else subpath
     
     # Use local cache or temp directory
@@ -73,10 +107,40 @@ def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
             # Try to find similar paths
             layer_files = [f for f in all_files if layer_dir in f]
             if layer_files:
-                print(f"Found {len(layer_files)} files with '{layer_dir}' in path. First few:")
+                print(f"Found {len(layer_files)} files with '{layer_dir}' in path.")
+                # Group by width type to show available options
+                width_types = set()
+                for f in layer_files:
+                    parts = f.split('/')
+                    if len(parts) >= 3:
+                        width_types.add(parts[1])  # width_16k, width_131k, etc.
+                
+                if width_types:
+                    print(f"\nAvailable width types for {layer_dir}:")
+                    for width_type in sorted(width_types):
+                        print(f"  - {width_type}")
+                    
+                    # Show a few example paths
+                    print(f"\nExample available paths:")
+                    seen_paths = set()
+                    for f in layer_files[:10]:
+                        # Extract path up to average_l0_*
+                        parts = f.split('/')
+                        if len(parts) >= 3:
+                            example_path = '/'.join(parts[:3])
+                            if example_path not in seen_paths:
+                                print(f"  - {repo_id}:{example_path}")
+                                seen_paths.add(example_path)
+                                if len(seen_paths) >= 5:
+                                    break
+                
+                print(f"\nFirst few files found:")
                 for f in layer_files[:5]:
                     print(f"  - {f}")
-            raise ValueError(f"No files found in subpath {subpath} in repo {repo_id}")
+            raise ValueError(
+                f"No files found in subpath {subpath} in repo {repo_id}. "
+                f"Please check the repository structure and use a valid path."
+            )
         
         print(f"Found {len(target_files)} files to download")
         
