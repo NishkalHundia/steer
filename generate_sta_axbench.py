@@ -18,31 +18,39 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     print(f"Loading AxBench dataset from {hf_path}...")
     
     # Load train split - use parquet files directly to avoid schema conflicts
-    try:
-        from huggingface_hub import hf_hub_download
-        import pyarrow.parquet as pq
-        from datasets import Dataset
-        
-        print("Loading train split directly from parquet files...")
-        train_file = hf_hub_download(repo_id=hf_path, filename="train-00000-of-00001.parquet", repo_type="dataset")
-        train_table = pq.read_table(train_file)
-        train_dataset = Dataset.from_arrow(train_table)
-        print(f"Train split: {len(train_dataset)} examples")
-        train_list = [dict(item) for item in train_dataset]
-    except Exception as e:
-        print(f"Error loading train split: {e}")
-        raise
+    from huggingface_hub import hf_hub_download, list_repo_files
+    import pyarrow.parquet as pq
+    from datasets import Dataset
+    
+    # Find train parquet file (it's in a subdirectory like 9b/l20/train/data.parquet)
+    print("Finding train parquet file...")
+    all_files = list_repo_files(repo_id=hf_path, repo_type="dataset")
+    train_files = [f for f in all_files if "/train/" in f.lower() and f.endswith(".parquet")]
+    
+    if not train_files:
+        raise ValueError(f"Could not find train parquet file in {hf_path}")
+    
+    # Use the first train file found
+    train_filename = train_files[0]
+    print(f"Loading train split from: {train_filename}")
+    train_file = hf_hub_download(repo_id=hf_path, filename=train_filename, repo_type="dataset")
+    train_table = pq.read_table(train_file)
+    train_dataset = Dataset.from_arrow(train_table)
+    print(f"Train split: {len(train_dataset)} examples")
+    train_list = [dict(item) for item in train_dataset]
     
     # Load test split only if needed (has different schema)
     test_list = []
     if load_test:
         try:
-            from huggingface_hub import hf_hub_download
-            import pyarrow.parquet as pq
-            from datasets import Dataset
+            # Find test parquet file
+            test_files = [f for f in all_files if "/test/" in f.lower() and f.endswith(".parquet")]
+            if not test_files:
+                raise ValueError(f"Could not find test parquet file in {hf_path}")
             
-            print("Loading test split with schema differences...")
-            test_file = hf_hub_download(repo_id=hf_path, filename="test-00000-of-00001.parquet", repo_type="dataset")
+            test_filename = test_files[0]
+            print(f"Loading test split from: {test_filename}")
+            test_file = hf_hub_download(repo_id=hf_path, filename=test_filename, repo_type="dataset")
             test_table = pq.read_table(test_file)
             test_data = Dataset.from_arrow(test_table)
             print(f"Test split: {len(test_data)} examples")

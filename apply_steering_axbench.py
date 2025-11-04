@@ -23,42 +23,47 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     """Load AxBench dataset from HuggingFace."""
     print(f"Loading AxBench dataset from {hf_path}...")
     
-    # Load train split
-    train_data = load_dataset(hf_path, split="train")
-    print(f"Train split: {len(train_data)} examples")
+    # Load train split - use parquet files directly to avoid schema conflicts
+    from huggingface_hub import hf_hub_download, list_repo_files
+    import pyarrow.parquet as pq
+    from datasets import Dataset
     
-    # Convert to list of dicts
-    train_list = [dict(item) for item in train_data]
+    # Find train parquet file (it's in a subdirectory like 9b/l20/train/data.parquet)
+    print("Finding train parquet file...")
+    all_files = list_repo_files(repo_id=hf_path, repo_type="dataset")
+    train_files = [f for f in all_files if "/train/" in f.lower() and f.endswith(".parquet")]
+    
+    if not train_files:
+        raise ValueError(f"Could not find train parquet file in {hf_path}")
+    
+    # Use the first train file found
+    train_filename = train_files[0]
+    print(f"Loading train split from: {train_filename}")
+    train_file = hf_hub_download(repo_id=hf_path, filename=train_filename, repo_type="dataset")
+    train_table = pq.read_table(train_file)
+    train_dataset = Dataset.from_arrow(train_table)
+    print(f"Train split: {len(train_dataset)} examples")
+    train_list = [dict(item) for item in train_dataset]
     
     # Load test split only if needed (has different schema)
     test_list = []
     if load_test:
         try:
-            # Test split has different schema - try loading with parquet files directly
-            import pyarrow.parquet as pq
-            from datasets import Dataset
-            from huggingface_hub import hf_hub_download
-            import tempfile
-            import os
+            # Find test parquet file
+            test_files = [f for f in all_files if "/test/" in f.lower() and f.endswith(".parquet")]
+            if not test_files:
+                raise ValueError(f"Could not find test parquet file in {hf_path}")
             
-            # Download test parquet file directly
-            print("Loading test split with schema differences...")
-            test_file = hf_hub_download(repo_id=hf_path, filename="test-00000-of-00001.parquet", repo_type="dataset")
+            test_filename = test_files[0]
+            print(f"Loading test split from: {test_filename}")
+            test_file = hf_hub_download(repo_id=hf_path, filename=test_filename, repo_type="dataset")
             test_table = pq.read_table(test_file)
             test_data = Dataset.from_arrow(test_table)
             print(f"Test split: {len(test_data)} examples")
             test_list = [dict(item) for item in test_data]
         except Exception as e:
             print(f"Warning: Could not load test split: {e}")
-            print("Trying alternative method...")
-            try:
-                # Try with keep_in_memory and ignore verification
-                test_data = load_dataset(hf_path, split="test", keep_in_memory=True)
-                test_list = [dict(item) for item in test_data]
-                print(f"Test split: {len(test_list)} examples")
-            except Exception as e2:
-                print(f"Failed to load test split: {e2}")
-                raise
+            print("Test split has different columns (sae_link, sae_id)")
     
     return train_list, test_list
 
