@@ -79,22 +79,7 @@ def get_training_pairs(train_data, concept_id):
     return training_pairs
 
 
-@hydra.main(version_base='1.2', config_path='./hparams/Steer', config_name='vector_apply.yaml')
-def main(top_cfg: DictConfig):
-    parser = argparse.ArgumentParser(description='Sanity check: Apply steering vectors to training prompts')
-    parser.add_argument('--concept_id', type=int, required=True, help='Concept ID')
-    parser.add_argument('--method', type=str, required=True, choices=['caa', 'sta'], help='Steering method')
-    parser.add_argument('--layer', type=int, required=True, help='Layer number')
-    parser.add_argument('--multiplier', type=float, default=1.0, help='Steering multiplier')
-    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
-    parser.add_argument('--vector_dir', type=str, default=None, help='Vector directory')
-    parser.add_argument('--trim', type=float, default=0.65, help='Trim parameter for STA')
-    parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
-    parser.add_argument('--output_dir', type=str, default=None, help='Output directory for results')
-    parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
-    
-    args = parser.parse_args()
-    
+def main_func(top_cfg: DictConfig, args):
     # Set vector directory (vectors are saved to {base_dir}/{dataset_name}/{method}_vector/)
     dataset_name = f'axbench_concept_{args.concept_id}'
     if args.vector_dir is None:
@@ -191,4 +176,26 @@ def main(top_cfg: DictConfig):
 
 
 if __name__ == '__main__':
-    main()
+    # Parse arguments before Hydra initialization
+    parser = argparse.ArgumentParser(description='Sanity check: Apply steering vectors to training prompts')
+    parser.add_argument('--concept_id', type=int, required=True, help='Concept ID')
+    parser.add_argument('--method', type=str, required=True, choices=['caa', 'sta'], help='Steering method')
+    parser.add_argument('--layer', type=int, required=True, help='Layer number')
+    parser.add_argument('--multiplier', type=float, default=1.0, help='Steering multiplier')
+    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
+    parser.add_argument('--vector_dir', type=str, default=None, help='Vector directory')
+    parser.add_argument('--trim', type=float, default=0.65, help='Trim parameter for STA')
+    parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
+    parser.add_argument('--output_dir', type=str, default=None, help='Output directory for results')
+    parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
+    
+    args = parser.parse_args()
+    
+    # Use Hydra's compose API to load config
+    from hydra import compose, initialize_config_dir
+    import os
+    
+    config_path = os.path.join(os.path.dirname(__file__), 'hparams', 'Steer')
+    with initialize_config_dir(config_dir=config_path, version_base='1.2'):
+        cfg = compose(config_name='vector_apply.yaml')
+        main_func(cfg, args)

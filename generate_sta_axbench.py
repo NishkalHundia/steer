@@ -90,19 +90,7 @@ def create_contrastive_pairs(train_data, concept_id):
     return contrastive_pairs
 
 
-@hydra.main(version_base='1.2', config_path='./hparams/Steer', config_name='vector_generate.yaml')
-def main(top_cfg: DictConfig):
-    parser = argparse.ArgumentParser(description='Generate STA steering vectors for AxBench Concept500')
-    parser.add_argument('--concept_id', type=int, required=True, help='Concept ID to generate vectors for')
-    parser.add_argument('--layer', type=int, required=True, help='Layer number to extract activations from')
-    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
-    parser.add_argument('--sae_path', type=str, default='google/gemma-scope-9b-it-res-canonical:layer_20/width_16k/canonical', help='SAE path (default: canonical SAE for gemma-2-9b-it). For pretrained model use: google/gemma-scope-9b-pt-res-canonical:layer_20/width_16k/canonical')
-    parser.add_argument('--trim', type=float, default=0.65, help='Trim parameter for STA')
-    parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
-    parser.add_argument('--output_dir', type=str, default=None, help='Output directory for vectors')
-    parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
-    
-    args = parser.parse_args()
+def main_func(top_cfg: DictConfig, args):
     
     # Set output directory (base directory - dataset_name will be added automatically)
     if args.output_dir is None:
@@ -151,4 +139,24 @@ def main(top_cfg: DictConfig):
 
 
 if __name__ == '__main__':
-    main()
+    # Parse arguments before Hydra initialization
+    parser = argparse.ArgumentParser(description='Generate STA steering vectors for AxBench Concept500')
+    parser.add_argument('--concept_id', type=int, required=True, help='Concept ID to generate vectors for')
+    parser.add_argument('--layer', type=int, required=True, help='Layer number to extract activations from')
+    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
+    parser.add_argument('--sae_path', type=str, default='google/gemma-scope-9b-it-res-canonical:layer_20/width_16k/canonical', help='SAE path (default: canonical SAE for gemma-2-9b-it). For pretrained model use: google/gemma-scope-9b-pt-res-canonical:layer_20/width_16k/canonical')
+    parser.add_argument('--trim', type=float, default=0.65, help='Trim parameter for STA')
+    parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
+    parser.add_argument('--output_dir', type=str, default=None, help='Output directory for vectors')
+    parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
+    
+    args = parser.parse_args()
+    
+    # Use Hydra's compose API to load config
+    from hydra import compose, initialize_config_dir
+    import os
+    
+    config_path = os.path.join(os.path.dirname(__file__), 'hparams', 'Steer')
+    with initialize_config_dir(config_dir=config_path, version_base='1.2'):
+        cfg = compose(config_name='vector_generate.yaml')
+        main_func(cfg, args)

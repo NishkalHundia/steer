@@ -133,16 +133,7 @@ def create_config(model_name, layer, output_dir, concept_id):
     return OmegaConf.create(config_dict)
 
 
-@hydra.main(version_base='1.2', config_path='./hparams/Steer', config_name='vector_generate.yaml')
-def main(top_cfg: DictConfig):
-    parser = argparse.ArgumentParser(description='Generate CAA steering vectors for AxBench Concept500')
-    parser.add_argument('--concept_id', type=int, required=True, help='Concept ID to generate vectors for')
-    parser.add_argument('--layer', type=int, required=True, help='Layer number to extract activations from')
-    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
-    parser.add_argument('--output_dir', type=str, default=None, help='Output directory for vectors')
-    parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
-    
-    args = parser.parse_args()
+def main_func(top_cfg: DictConfig, args):
     
     # Set output directory (base directory - dataset_name will be added automatically)
     if args.output_dir is None:
@@ -186,4 +177,21 @@ def main(top_cfg: DictConfig):
 
 
 if __name__ == '__main__':
-    main()
+    # Parse arguments before Hydra initialization
+    parser = argparse.ArgumentParser(description='Generate CAA steering vectors for AxBench Concept500')
+    parser.add_argument('--concept_id', type=int, required=True, help='Concept ID to generate vectors for')
+    parser.add_argument('--layer', type=int, required=True, help='Layer number to extract activations from')
+    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
+    parser.add_argument('--output_dir', type=str, default=None, help='Output directory for vectors')
+    parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
+    
+    args = parser.parse_args()
+    
+    # Use Hydra's compose API to load config
+    from hydra import compose, initialize_config_dir
+    import os
+    
+    config_path = os.path.join(os.path.dirname(__file__), 'hparams', 'Steer')
+    with initialize_config_dir(config_dir=config_path, version_base='1.2'):
+        cfg = compose(config_name='vector_generate.yaml')
+        main_func(cfg, args)
