@@ -20,23 +20,38 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     """Load AxBench dataset from HuggingFace."""
     print(f"Loading AxBench dataset from {hf_path}...")
     
-    # Load train split
-    train_data = load_dataset(hf_path, split="train")
-    print(f"Train split: {len(train_data)} examples")
-    
-    # Convert to list of dicts
-    train_list = [dict(item) for item in train_data]
+    # Load train split - use parquet files directly to avoid schema conflicts
+    try:
+        from huggingface_hub import hf_hub_download
+        import pyarrow.parquet as pq
+        from datasets import Dataset
+        
+        print("Loading train split directly from parquet files...")
+        train_file = hf_hub_download(repo_id=hf_path, filename="train-00000-of-00001.parquet", repo_type="dataset")
+        train_table = pq.read_table(train_file)
+        train_dataset = Dataset.from_arrow(train_table)
+        print(f"Train split: {len(train_dataset)} examples")
+        train_list = [dict(item) for item in train_dataset]
+    except Exception as e:
+        print(f"Error loading train split: {e}")
+        raise
     
     # Load test split only if needed (has different schema)
     test_list = []
     if load_test:
         try:
-            test_data = load_dataset(hf_path, split="test")
+            from huggingface_hub import hf_hub_download
+            import pyarrow.parquet as pq
+            from datasets import Dataset
+            
+            print("Loading test split with schema differences...")
+            test_file = hf_hub_download(repo_id=hf_path, filename="test-00000-of-00001.parquet", repo_type="dataset")
+            test_table = pq.read_table(test_file)
+            test_data = Dataset.from_arrow(test_table)
             print(f"Test split: {len(test_data)} examples")
             test_list = [dict(item) for item in test_data]
         except Exception as e:
-            print(f"Warning: Could not load test split due to schema differences: {e}")
-            print("Test split has different columns (sae_link, sae_id) - skipping for now")
+            print(f"Warning: Could not load test split: {e}")
     
     return train_list, test_list
 
