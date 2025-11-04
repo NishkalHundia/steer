@@ -96,7 +96,19 @@ def get_test_prompts(test_data, concept_id, limit=None):
     for item in test_examples:
         # Test split might have different schema - handle both
         input_prompt = item.get('input', item.get('instruction', ''))
-        expected_response = item.get('winning_output', item.get('reference_response', ''))
+        
+        # Try multiple possible field names for expected output
+        # Test split might use 'output', 'winning_output', 'reference_response', etc.
+        expected_response = ''
+        for field_name in ['output', 'winning_output', 'reference_response', 'expected_output']:
+            if field_name in item and item[field_name]:
+                expected_response = item[field_name]
+                break
+        
+        # Debug: print first example's keys if expected_response is empty
+        if not expected_response and len(generation_data) == 0:
+            print(f"Warning: Expected response is empty. Available fields in test data: {list(item.keys())}")
+            print(f"Sample item: {item}")
         
         generation_data.append({
             'input': input_prompt,

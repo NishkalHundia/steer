@@ -66,7 +66,7 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     return train_list, test_list
 
 
-def get_training_pairs(train_data, concept_id):
+def get_training_pairs(train_data, concept_id, limit=None):
     """
     Get training pairs for sanity check.
     Returns the same prompts used for training with their expected matching/not_matching responses.
@@ -126,6 +126,11 @@ def get_training_pairs(train_data, concept_id):
     
     print(f"Found {len(training_pairs)} training pairs for sanity check")
     
+    # Apply limit if specified
+    if limit is not None and limit > 0:
+        training_pairs = training_pairs[:limit]
+        print(f"Limited to {len(training_pairs)} training pairs for faster iteration")
+    
     return training_pairs
 
 
@@ -146,7 +151,7 @@ def main_func(top_cfg: DictConfig, args):
     train_data, _ = load_axbench_data(args.hf_path, load_test=False)
     
     # Get training pairs
-    training_pairs = get_training_pairs(train_data, args.concept_id)
+    training_pairs = get_training_pairs(train_data, args.concept_id, limit=args.limit)
     
     # Update config
     top_cfg.model_name_or_path = args.model_name
@@ -238,6 +243,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory for results')
     parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of training pairs (for faster iteration)')
     
     args = parser.parse_args()
     
