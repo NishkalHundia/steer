@@ -19,18 +19,46 @@ import hydra
 import torch
 
 
-def load_axbench_data(hf_path="pyvene/axbench-concept500"):
+def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     """Load AxBench dataset from HuggingFace."""
     print(f"Loading AxBench dataset from {hf_path}...")
-    train_data = load_dataset(hf_path, split="train")
-    test_data = load_dataset(hf_path, split="test")
     
+    # Load train split
+    train_data = load_dataset(hf_path, split="train")
     print(f"Train split: {len(train_data)} examples")
-    print(f"Test split: {len(test_data)} examples")
     
     # Convert to list of dicts
     train_list = [dict(item) for item in train_data]
-    test_list = [dict(item) for item in test_data]
+    
+    # Load test split only if needed (has different schema)
+    test_list = []
+    if load_test:
+        try:
+            # Test split has different schema - try loading with parquet files directly
+            import pyarrow.parquet as pq
+            from datasets import Dataset
+            from huggingface_hub import hf_hub_download
+            import tempfile
+            import os
+            
+            # Download test parquet file directly
+            print("Loading test split with schema differences...")
+            test_file = hf_hub_download(repo_id=hf_path, filename="test-00000-of-00001.parquet", repo_type="dataset")
+            test_table = pq.read_table(test_file)
+            test_data = Dataset.from_arrow(test_table)
+            print(f"Test split: {len(test_data)} examples")
+            test_list = [dict(item) for item in test_data]
+        except Exception as e:
+            print(f"Warning: Could not load test split: {e}")
+            print("Trying alternative method...")
+            try:
+                # Try with keep_in_memory and ignore verification
+                test_data = load_dataset(hf_path, split="test", keep_in_memory=True)
+                test_list = [dict(item) for item in test_data]
+                print(f"Test split: {len(test_list)} examples")
+            except Exception as e2:
+                print(f"Failed to load test split: {e2}")
+                raise
     
     return train_list, test_list
 
@@ -83,8 +111,8 @@ def main_func(top_cfg: DictConfig, args):
     if args.output_dir is None:
         args.output_dir = f'generation/axbench_concept_{args.concept_id}/{args.method}'
     
-    # Load dataset
-    train_data, test_data = load_axbench_data(args.hf_path)
+    # Load dataset (need test for generation)
+    train_data, test_data = load_axbench_data(args.hf_path, load_test=True)
     
     # Get test prompts
     generation_data = get_test_prompts(test_data, args.concept_id)

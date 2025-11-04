@@ -19,18 +19,27 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 
 
-def load_axbench_data(hf_path="pyvene/axbench-concept500"):
+def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     """Load AxBench dataset from HuggingFace."""
     print(f"Loading AxBench dataset from {hf_path}...")
-    train_data = load_dataset(hf_path, split="train")
-    test_data = load_dataset(hf_path, split="test")
     
+    # Load train split
+    train_data = load_dataset(hf_path, split="train")
     print(f"Train split: {len(train_data)} examples")
-    print(f"Test split: {len(test_data)} examples")
     
     # Convert to list of dicts
     train_list = [dict(item) for item in train_data]
-    test_list = [dict(item) for item in test_data]
+    
+    # Load test split only if needed (has different schema)
+    test_list = []
+    if load_test:
+        try:
+            test_data = load_dataset(hf_path, split="test")
+            print(f"Test split: {len(test_data)} examples")
+            test_list = [dict(item) for item in test_data]
+        except Exception as e:
+            print(f"Warning: Could not load test split due to schema differences: {e}")
+            print("Test split has different columns (sae_link, sae_id) - skipping for now")
     
     return train_list, test_list
 
@@ -139,8 +148,8 @@ def main_func(top_cfg: DictConfig, args):
     if args.output_dir is None:
         args.output_dir = f'vectors/axbench_concept_{args.concept_id}'
     
-    # Load dataset
-    train_data, test_data = load_axbench_data(args.hf_path)
+    # Load dataset (only train needed for vector generation)
+    train_data, _ = load_axbench_data(args.hf_path, load_test=False)
     
     # Create contrastive pairs
     contrastive_pairs = create_contrastive_pairs(train_data, args.concept_id)
