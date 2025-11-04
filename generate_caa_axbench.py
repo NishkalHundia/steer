@@ -95,25 +95,44 @@ def create_contrastive_pairs(train_data, concept_id):
     print(f"Found {len(positive_examples)} positive examples for concept_id {concept_id}")
     print(f"Concept genre: {concept_genre}")
     
-    # Create a mapping of input prompts to negative examples with same genre
-    # Negative examples: different concept_id but same genre
+    # Step 1: Collect all unique inputs from positive examples
+    positive_inputs = set()
+    positive_by_input = {}
+    for pos_item in positive_examples:
+        input_prompt = pos_item.get('input', '').strip()
+        if input_prompt:
+            positive_inputs.add(input_prompt)
+            # Store positive example by input (take first one if multiple exist)
+            if input_prompt not in positive_by_input:
+                positive_by_input[input_prompt] = pos_item
+    
+    print(f"Found {len(positive_inputs)} unique input prompts in positive examples")
+    
+    # Step 2: Filter negative examples:
+    # - Same genre as positive examples
+    # - AND have exact same input as one of the positive examples
     negative_examples_by_prompt = {}
     for item in train_data:
         if (item.get('concept_id') != concept_id and 
             item.get('concept_genre') == concept_genre):
-            input_prompt = item.get('input', '')
-            if input_prompt and input_prompt not in negative_examples_by_prompt:
-                negative_examples_by_prompt[input_prompt] = item
+            input_prompt = item.get('input', '').strip()
+            # Only keep if input matches one of the positive example inputs
+            if input_prompt in positive_inputs:
+                # Use first matching negative example per input
+                if input_prompt not in negative_examples_by_prompt:
+                    negative_examples_by_prompt[input_prompt] = item
     
-    print(f"Found {len(negative_examples_by_prompt)} unique negative prompts with same genre")
+    print(f"Found {len(negative_examples_by_prompt)} negative examples with same genre AND matching inputs")
     
-    # Create contrastive pairs
+    # Step 3: Create contrastive pairs
+    # For each positive example input, pair it with the matching negative example
     contrastive_pairs = []
-    for pos_item in positive_examples:
-        input_prompt = pos_item.get('input', '')
-        
-        # Find matching negative example with same prompt
+    matched_count = 0
+    unmatched_count = 0
+    
+    for input_prompt in positive_inputs:
         if input_prompt in negative_examples_by_prompt:
+            pos_item = positive_by_input[input_prompt]
             neg_item = negative_examples_by_prompt[input_prompt]
             
             # Format according to CAA requirements
@@ -123,10 +142,22 @@ def create_contrastive_pairs(train_data, concept_id):
                 'not_matching': neg_item.get('winning_output', '')
             }
             contrastive_pairs.append(pair)
+            matched_count += 1
         else:
-            print(f"Warning: No matching negative example found for prompt: {input_prompt[:100]}...")
+            unmatched_count += 1
+            if unmatched_count <= 3:  # Show first few unmatched examples
+                print(f"Warning: No matching negative example found for input: {input_prompt[:100]}...")
     
     print(f"Created {len(contrastive_pairs)} contrastive pairs")
+    print(f"Matched: {matched_count}, Unmatched: {unmatched_count}")
+    
+    # Show a sample pair for verification
+    if contrastive_pairs:
+        sample = contrastive_pairs[0]
+        print(f"\nSample contrastive pair:")
+        print(f"  Input: {sample['question'][:100]}...")
+        print(f"  Matching output: {sample['matching'][:100]}...")
+        print(f"  Not matching output: {sample['not_matching'][:100]}...")
     
     if not contrastive_pairs:
         raise ValueError(f"No contrastive pairs created for concept_id {concept_id}")

@@ -84,21 +84,37 @@ def get_training_pairs(train_data, concept_id):
     if concept_genre is None:
         raise ValueError(f"concept_genre not found for concept_id {concept_id}")
     
-    # Create mapping of input prompts to negative examples with same genre
+    # Step 1: Collect all unique inputs from positive examples
+    positive_inputs = set()
+    positive_by_input = {}
+    for pos_item in positive_examples:
+        input_prompt = pos_item.get('input', '').strip()
+        if input_prompt:
+            positive_inputs.add(input_prompt)
+            # Store positive example by input (take first one if multiple exist)
+            if input_prompt not in positive_by_input:
+                positive_by_input[input_prompt] = pos_item
+    
+    # Step 2: Filter negative examples:
+    # - Same genre as positive examples
+    # - AND have exact same input as one of the positive examples
     negative_examples_by_prompt = {}
     for item in train_data:
         if (item.get('concept_id') != concept_id and 
             item.get('concept_genre') == concept_genre):
-            input_prompt = item.get('input', '')
-            if input_prompt and input_prompt not in negative_examples_by_prompt:
-                negative_examples_by_prompt[input_prompt] = item
+            input_prompt = item.get('input', '').strip()
+            # Only keep if input matches one of the positive example inputs
+            if input_prompt in positive_inputs:
+                # Use first matching negative example per input
+                if input_prompt not in negative_examples_by_prompt:
+                    negative_examples_by_prompt[input_prompt] = item
     
-    # Create training pairs
+    # Step 3: Create training pairs
+    # For each positive example input, pair it with the matching negative example
     training_pairs = []
-    for pos_item in positive_examples:
-        input_prompt = pos_item.get('input', '')
-        
+    for input_prompt in positive_inputs:
         if input_prompt in negative_examples_by_prompt:
+            pos_item = positive_by_input[input_prompt]
             neg_item = negative_examples_by_prompt[input_prompt]
             
             pair = {

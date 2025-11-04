@@ -70,7 +70,7 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     return train_list, test_list
 
 
-def get_test_prompts(test_data, concept_id):
+def get_test_prompts(test_data, concept_id, limit=None):
     """Extract test prompts for a specific concept_id."""
     test_examples = [
         item for item in test_data 
@@ -81,6 +81,11 @@ def get_test_prompts(test_data, concept_id):
         raise ValueError(f"No test examples found for concept_id {concept_id}")
     
     print(f"Found {len(test_examples)} test examples for concept_id {concept_id}")
+    
+    # Apply limit if specified
+    if limit is not None and limit > 0:
+        test_examples = test_examples[:limit]
+        print(f"Limited to {len(test_examples)} test examples for faster iteration")
     
     # Format for generation
     generation_data = []
@@ -122,7 +127,7 @@ def main_func(top_cfg: DictConfig, args):
     train_data, test_data = load_axbench_data(args.hf_path, load_test=True)
     
     # Get test prompts
-    generation_data = get_test_prompts(test_data, args.concept_id)
+    generation_data = get_test_prompts(test_data, args.concept_id, limit=args.limit)
     
     # Update config
     top_cfg.model_name_or_path = args.model_name
@@ -243,6 +248,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory for generations')
     parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
+    parser.add_argument('--limit', type=int, default=None, help='Limit number of test prompts (for faster iteration)')
     
     args = parser.parse_args()
     
