@@ -120,11 +120,47 @@ def get_training_pairs(train_data, concept_id, limit=None):
             pair = {
                 'input': input_prompt,
                 'expected_matching': pos_item.get('winning_output', ''),
-                'expected_not_matching': neg_item.get('winning_output', '')
+                'expected_not_matching': neg_item.get('losing_output', neg_item.get('winning_output', ''))
             }
             training_pairs.append(pair)
     
     print(f"Found {len(training_pairs)} training pairs for sanity check")
+    
+    # Debug: Show first pair's fields if expected_matching is empty
+    if training_pairs and not training_pairs[0].get('expected_matching'):
+        print(f"\nWarning: Expected matching is empty. Checking available fields...")
+        sample_pos = positive_examples[0]
+        sample_neg = negative_examples_by_prompt.get(list(positive_inputs)[0])
+        print(f"Positive example fields: {list(sample_pos.keys())}")
+        if sample_neg:
+            print(f"Negative example fields: {list(sample_neg.keys())}")
+        print(f"Sample positive item: {sample_pos}")
+        if sample_neg:
+            print(f"Sample negative item: {sample_neg}")
+    
+    # Try alternative field names if winning_output is empty
+    for pair in training_pairs:
+        if not pair['expected_matching']:
+            # Find the corresponding positive item
+            for pos_item in positive_examples:
+                if pos_item.get('input', '').strip() == pair['input']:
+                    # Try alternative field names
+                    for field_name in ['winning_output', 'output', 'matching', 'expected_output']:
+                        if field_name in pos_item and pos_item[field_name]:
+                            pair['expected_matching'] = pos_item[field_name]
+                            break
+                    break
+        
+        if not pair['expected_not_matching']:
+            # Find the corresponding negative item
+            input_prompt = pair['input']
+            if input_prompt in negative_examples_by_prompt:
+                neg_item = negative_examples_by_prompt[input_prompt]
+                # Try alternative field names - negative examples should use losing_output
+                for field_name in ['losing_output', 'winning_output', 'output', 'not_matching', 'expected_output']:
+                    if field_name in neg_item and neg_item[field_name]:
+                        pair['expected_not_matching'] = neg_item[field_name]
+                        break
     
     # Apply limit if specified
     if limit is not None and limit > 0:
