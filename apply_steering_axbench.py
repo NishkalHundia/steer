@@ -69,7 +69,7 @@ def main(top_cfg: DictConfig):
     parser.add_argument('--method', type=str, required=True, choices=['caa', 'sta', 'both'], help='Steering method')
     parser.add_argument('--layer', type=int, required=True, help='Layer number')
     parser.add_argument('--multipliers', type=float, nargs='+', required=True, help='Steering multipliers to test')
-    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b', help='Model name or path')
+    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
     parser.add_argument('--caa_vector_dir', type=str, default=None, help='CAA vector directory')
     parser.add_argument('--sta_vector_dir', type=str, default=None, help='STA vector directory')
     parser.add_argument('--vector_dir', type=str, default=None, help='Vector directory (for single method)')
@@ -108,6 +108,7 @@ def main(top_cfg: DictConfig):
     
     # Update config
     top_cfg.model_name_or_path = args.model_name
+    top_cfg.use_chat_template = True  # Use chat template for instruction-tuned models
     top_cfg.generation_output_dir = args.output_dir
     top_cfg.generation_data = [f'axbench_concept_{args.concept_id}']
     

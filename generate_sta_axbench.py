@@ -95,8 +95,8 @@ def main(top_cfg: DictConfig):
     parser = argparse.ArgumentParser(description='Generate STA steering vectors for AxBench Concept500')
     parser.add_argument('--concept_id', type=int, required=True, help='Concept ID to generate vectors for')
     parser.add_argument('--layer', type=int, required=True, help='Layer number to extract activations from')
-    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b', help='Model name or path')
-    parser.add_argument('--sae_path', type=str, required=True, help='SAE path (e.g., google/gemma-scope-9b-pt-res-canonical:layer_20/width_16k/canonical)')
+    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
+    parser.add_argument('--sae_path', type=str, default='google/gemma-scope-9b-it-res-canonical:layer_20/width_16k/canonical', help='SAE path (default: canonical SAE for gemma-2-9b-it). For pretrained model use: google/gemma-scope-9b-pt-res-canonical:layer_20/width_16k/canonical')
     parser.add_argument('--trim', type=float, default=0.65, help='Trim parameter for STA')
     parser.add_argument('--mode', type=str, default='act_and_freq', choices=['act_and_freq', 'only_act', 'only_freq'], help='STA mode')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory for vectors')
@@ -116,6 +116,7 @@ def main(top_cfg: DictConfig):
     
     # Update config
     top_cfg.model_name_or_path = args.model_name
+    top_cfg.use_chat_template = True  # Use chat template for instruction-tuned models
     top_cfg.steer_train_dataset = f'axbench_concept_{args.concept_id}'
     top_cfg.steer_vector_output_dirs = [args.output_dir]
     top_cfg.steer_train_hparam_paths = ['hparams/Steer/sta_hparams/generate_sta.yaml']

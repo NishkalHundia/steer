@@ -138,7 +138,7 @@ def main(top_cfg: DictConfig):
     parser = argparse.ArgumentParser(description='Generate CAA steering vectors for AxBench Concept500')
     parser.add_argument('--concept_id', type=int, required=True, help='Concept ID to generate vectors for')
     parser.add_argument('--layer', type=int, required=True, help='Layer number to extract activations from')
-    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b', help='Model name or path')
+    parser.add_argument('--model_name', type=str, default='google/gemma-2-9b-it', help='Model name or path')
     parser.add_argument('--output_dir', type=str, default=None, help='Output directory for vectors')
     parser.add_argument('--hf_path', type=str, default='pyvene/axbench-concept500', help='HuggingFace dataset path')
     
@@ -156,6 +156,7 @@ def main(top_cfg: DictConfig):
     
     # Update config
     top_cfg.model_name_or_path = args.model_name
+    top_cfg.use_chat_template = True  # Use chat template for instruction-tuned models
     top_cfg.steer_train_dataset = f'axbench_concept_{args.concept_id}'
     top_cfg.steer_vector_output_dirs = [args.output_dir]
     
