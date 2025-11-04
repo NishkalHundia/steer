@@ -26,7 +26,7 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     # Load train split - use parquet files directly to avoid schema conflicts
     from huggingface_hub import hf_hub_download, list_repo_files
     import pyarrow.parquet as pq
-    from datasets import Dataset
+    import pandas as pd
     
     # Find train parquet file (it's in a subdirectory like 9b/l20/train/data.parquet)
     print("Finding train parquet file...")
@@ -41,9 +41,10 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
     print(f"Loading train split from: {train_filename}")
     train_file = hf_hub_download(repo_id=hf_path, filename=train_filename, repo_type="dataset")
     train_table = pq.read_table(train_file)
-    train_dataset = Dataset.from_arrow(train_table)
-    print(f"Train split: {len(train_dataset)} examples")
-    train_list = [dict(item) for item in train_dataset]
+    # Convert Arrow table to pandas DataFrame, then to list of dicts
+    train_df = train_table.to_pandas()
+    train_list = train_df.to_dict('records')
+    print(f"Train split: {len(train_list)} examples")
     
     # Load test split only if needed (has different schema)
     test_list = []
@@ -58,9 +59,10 @@ def load_axbench_data(hf_path="pyvene/axbench-concept500", load_test=False):
             print(f"Loading test split from: {test_filename}")
             test_file = hf_hub_download(repo_id=hf_path, filename=test_filename, repo_type="dataset")
             test_table = pq.read_table(test_file)
-            test_data = Dataset.from_arrow(test_table)
-            print(f"Test split: {len(test_data)} examples")
-            test_list = [dict(item) for item in test_data]
+            # Convert Arrow table to pandas DataFrame, then to list of dicts
+            test_df = test_table.to_pandas()
+            test_list = test_df.to_dict('records')
+            print(f"Test split: {len(test_list)} examples")
         except Exception as e:
             print(f"Warning: Could not load test split: {e}")
             print("Test split has different columns (sae_link, sae_id)")
