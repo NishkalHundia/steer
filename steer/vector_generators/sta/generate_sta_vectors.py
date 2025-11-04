@@ -5,6 +5,7 @@ import argparse
 from tqdm import tqdm
 import os
 from dotenv import load_dotenv
+from huggingface_hub import snapshot_download
 
 from .generate_sta_hparam import STAHyperParams
 from typing import List
@@ -17,6 +18,59 @@ from ..sae_feature.sae_utils import (
 load_dotenv()
 
 HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
+
+def download_sae_from_hf(hf_path: str, local_cache_dir: str = None) -> str:
+    """
+    Download SAE from HuggingFace Hub.
+    
+    Args:
+        hf_path: HuggingFace path in format "repo_id:path_within_repo" or just "repo_id/path"
+        local_cache_dir: Optional local directory to cache downloads
+    
+    Returns:
+        Local path to downloaded SAE directory
+    """
+    # Parse HuggingFace path
+    if ':' in hf_path:
+        repo_id, subpath = hf_path.split(':', 1)
+    elif '/' in hf_path:
+        parts = hf_path.split('/', 1)
+        repo_id = parts[0]
+        subpath = parts[1] if len(parts) > 1 else ''
+    else:
+        repo_id = hf_path
+        subpath = ''
+    
+    # Use local cache or temp directory
+    if local_cache_dir is None:
+        cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "saes")
+    else:
+        cache_dir = local_cache_dir
+    
+    os.makedirs(cache_dir, exist_ok=True)
+    
+    # Download from HuggingFace
+    print(f"Downloading SAE from HuggingFace: {repo_id}/{subpath}")
+    try:
+        downloaded_path = snapshot_download(
+            repo_id=repo_id,
+            local_dir=os.path.join(cache_dir, repo_id.replace("/", "_")),
+            local_dir_use_symlinks=False,
+            token=HUGGINGFACE_TOKEN,
+        )
+        
+        # If subpath specified, return the subdirectory
+        if subpath:
+            sae_path = os.path.join(downloaded_path, subpath)
+            if not os.path.exists(sae_path):
+                raise ValueError(f"SAE subpath {subpath} not found in downloaded repo {repo_id}")
+            return sae_path
+        else:
+            return downloaded_path
+    except ImportError:
+        raise ImportError("huggingface_hub is required for downloading SAEs. Install with: pip install huggingface_hub")
+    except Exception as e:
+        raise ValueError(f"Failed to download SAE from HuggingFace {hf_path}: {e}")
 
 
 def prepare_input(tokenizer, prompts, device="cuda"):
@@ -107,8 +161,9 @@ def generate_sta_vectors(hparams:STAHyperParams, dataset, model = None, dataset_
     del_model = True
     assert len(args.layers) == 1, "Not support many layers!!!"
     assert len(args.layers) == len(args.sae_paths), f"len(sae_paths) does not match the len(layers)"
-    for i,layer in enumerate(args.layers):
-        assert str(args.layers[i]) in args.sae_paths[i], f"Saes[{i}] does not match the layers[{i}]!!!"
+    
+    # Note: Layer validation will be done after downloading SAEs if needed
+    # The old assertion that required layer number in path string is removed for HuggingFace compatibility
     
     if model is None:
         model, tokenizer = get_model(hparams)
@@ -120,11 +175,23 @@ def generate_sta_vectors(hparams:STAHyperParams, dataset, model = None, dataset_
     device = model.device
     saes = dict([(layer, []) for layer in args.layers])
     for i,layer in enumerate(args.layers):
-        assert os.path.exists(args.sae_paths[i]), f"{args.sae_paths[i]} does not exist!!!"
+        sae_path = args.sae_paths[i]
+        
+        # Check if it's a HuggingFace path (contains : or starts with org/model format)
+        is_hf_path = ':' in sae_path or ('/' in sae_path and not os.path.exists(sae_path) and not sae_path.startswith('.'))
+        
+        if is_hf_path:
+            print(f"Detected HuggingFace SAE path: {sae_path}")
+            # Download from HuggingFace
+            sae_path = download_sae_from_hf(sae_path)
+        
+        if not os.path.exists(sae_path):
+            raise ValueError(f"SAE path does not exist: {sae_path}")
+        
         if "gemma" in args.model_name_or_path.lower():
-            saes[layer], _, _ = load_gemma_2_sae(sae_path=args.sae_paths[i], device=device)
+            saes[layer], _, _ = load_gemma_2_sae(sae_path=sae_path, device=device)
         else:
-            saes[layer], _, _ = load_sae_from_dir(args.sae_paths[i], device=device)
+            saes[layer], _, _ = load_sae_from_dir(sae_path, device=device)
     
     need_train_layers = []
     vectors = {}

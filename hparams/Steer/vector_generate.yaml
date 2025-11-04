@@ -1,8 +1,9 @@
 # General 
-model_name_or_path: ../DeepSeek-R1-Distill-Llama-8B
-# model_name_or_path: ../hugging_cache/Qwen2-1.5B
-# model_name_or_path: ../hugging_cache/Llama-2-7b-chat-hf
-# model_name_or_path: ../hugging_cache/gpt2
+# Use HuggingFace model identifiers - models will be automatically downloaded
+model_name_or_path: google/gemma-2-9b
+# model_name_or_path: meta-llama/Llama-2-7b-chat-hf
+# model_name_or_path: Qwen/Qwen2-1.5B
+# model_name_or_path: gpt2
 torch_dtype: bfloat16
 device: cuda:0
 seed: 42
@@ -16,7 +17,7 @@ steer_train_hparam_paths:
  # - hparams/Steer/lm_steer_hparams/generate_lm_steer.yaml
 steer_train_dataset: toxicity
 steer_vector_output_dirs:
- - vectors/DeepSeek-R1-Distill-Llama-8B
+ - vectors/gemma-2-9b
 
 # set to true for vLLM generation
 vllm_enable: false

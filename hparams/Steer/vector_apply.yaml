@@ -1,5 +1,6 @@
 # General 
-model_name_or_path: ../DeepSeek-R1-Distill-Llama-8B
+# Use HuggingFace model identifiers - models will be automatically downloaded
+model_name_or_path: google/gemma-2-9b
 torch_dtype: bfloat16
 device: cuda:0 
 seed: 42
@@ -12,14 +13,14 @@ apply_steer_hparam_paths:
 #  - hparams/Steer/lm_steer_hparams/apply_lm_steer.yaml
 
 steer_vector_load_dir: 
- - vectors/DeepSeek-R1-Distill-Llama-8B/your_dataset_name/caa_vector
-#  - vectors/DeepSeek-R1-Distill-Llama-8B/toxicity/lm_steer_vector
+ - vectors/gemma-2-9b/your_dataset_name/caa_vector
+#  - vectors/gemma-2-9b/toxicity/lm_steer_vector
 # Generation
 # Supported multiple files generation based on `generation_data`.
 generation_data: 
  - realtoxicityprompts
 generation_data_size: null
-generation_output_dir: generation/DeepSeek-R1-Distill-Llama-8B/realtoxicityprompts/caa
+generation_output_dir: generation/gemma-2-9b/realtoxicityprompts/caa
 num_responses: 1
 steer_from_end_position: false
 generate_orig_output: true
