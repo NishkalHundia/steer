@@ -286,6 +286,8 @@ class BaseVectorApplier:
 
             print(f"\n===== {generation_data_name} Results =====\n")
             print(f"----- Input -----\n{item['input']}\n")
+            if item.get("reference_response"):
+                print(f"----- Expected Output -----\n{item['reference_response']}\n")
             if self.config.get('generate_orig_output', False):
                 print(f"----- Orig Output-----\n{item['orig_pred']}\n")
             print(f"----- Steered Output-----\n{item['pred']}\n")
@@ -352,6 +354,8 @@ class BaseVectorApplier:
         item = formatted_results[0]
         print(f"\n===== {generation_data_name} Results =====\n")
         print(f"----- Input -----\n{item['input']}\n")
+        if item.get("reference_response"):
+            print(f"----- Expected Output -----\n{item['reference_response']}\n")
         if self.config.get('generate_orig_output', False):
             print(f"----- Orig Output-----\n{item['orig_pred']}\n")
         print(f"----- Steered Output-----\n{item['pred']}\n")

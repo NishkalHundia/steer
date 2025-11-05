@@ -77,6 +77,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="AxBench subdirectory (e.g., '9b/l20') if the dataset is organised by model layer.",
     )
+    parser.add_argument(
+        "--include_negative",
+        action="store_true",
+        help="Also evaluate negative targets during sanity check.",
+    )
     return parser.parse_args()
 
 
@@ -138,6 +143,9 @@ def main() -> None:
         pairs = pairs[: args.pair_limit]
     eval_sets = build_contrastive_eval_sets(pairs)
 
+    if not args.include_negative:
+        eval_sets = {"contrastive_positive": eval_sets["contrastive_positive"]}
+
     dataset_name = f"axbench_concept_{args.concept_id}"
     vector_base = os.path.join(
         args.vector_root,
@@ -159,7 +167,7 @@ def main() -> None:
 
     dataset_keys = list(eval_sets.keys())
     print(
-        f"Evaluating {len(pairs)} contrastive prompts across {len(dataset_keys)} datasets."
+        f"Evaluating {len(pairs)} contrastive prompts across {len(dataset_keys)} dataset(s)."
     )
 
     for methods in [args.methods]:
