@@ -18,7 +18,11 @@ def sanitize_model_name(model_name: str) -> str:
     return model_name.replace("/", "-")
 
 
-def load_axbench_split(split: str, token: Optional[str] = None) -> List[Dict]:
+def load_axbench_split(
+    split: str,
+    token: Optional[str] = None,
+    subdir: str = "",
+) -> List[Dict]:
     """Load an AxBench split and return the records as a list of dictionaries.
 
     The dataset is stored as Parquet files on the Hub.  We fetch the Parquet file
@@ -37,7 +41,8 @@ def load_axbench_split(split: str, token: Optional[str] = None) -> List[Dict]:
         List of dictionaries representing the rows.
     """
 
-    filename = f"{split}/data.parquet"
+    prefix = f"{subdir.strip('/')}/" if subdir else ""
+    filename = f"{prefix}{split}/data.parquet"
     try:
         parquet_path = hf_hub_download(
             repo_id=AXBENCH_REPO_ID,

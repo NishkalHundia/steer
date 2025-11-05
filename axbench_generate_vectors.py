@@ -80,6 +80,11 @@ def parse_args() -> argparse.Namespace:
         help="SAE variant suffix (default: canonical).",
     )
     parser.add_argument(
+        "--axbench_subdir",
+        default="",
+        help="AxBench subdirectory (e.g., '9b/l20') if the dataset is organised by model layer.",
+    )
+    parser.add_argument(
         "--hf_token",
         default=os.environ.get("HF_TOKEN"),
         help="Optional Hugging Face token. Falls back to cached login if omitted.",
@@ -173,7 +178,7 @@ def main() -> None:
     args = parse_args()
 
     print("Loading AxBench Concept500 train split ...")
-    train_records = load_axbench_split("train", token=args.hf_token)
+    train_records = load_axbench_split("train", token=args.hf_token, subdir=args.axbench_subdir)
     pairs, metadata = build_contrastive_pairs(train_records, args.concept_id)
 
     print(

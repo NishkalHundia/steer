@@ -72,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Limit number of contrastive pairs evaluated (0 = all).",
     )
+    parser.add_argument(
+        "--axbench_subdir",
+        default="",
+        help="AxBench subdirectory (e.g., '9b/l20') if the dataset is organised by model layer.",
+    )
     return parser.parse_args()
 
 
@@ -126,7 +131,7 @@ def main() -> None:
     args = parse_args()
 
     print("Loading AxBench Concept500 train split ...")
-    train_records = load_axbench_split("train", token=args.hf_token)
+    train_records = load_axbench_split("train", token=args.hf_token, subdir=args.axbench_subdir)
     pairs, metadata = build_contrastive_pairs(train_records, args.concept_id)
 
     if args.pair_limit > 0:

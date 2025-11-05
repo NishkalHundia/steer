@@ -97,6 +97,11 @@ def parse_args() -> argparse.Namespace:
         default=0,
         help="Optional limit on number of evaluation samples (0 = all).",
     )
+    parser.add_argument(
+        "--axbench_subdir",
+        default="",
+        help="AxBench subdirectory (e.g., '9b/l20') if the dataset is organised by model layer.",
+    )
     return parser.parse_args()
 
 
@@ -160,7 +165,7 @@ def main() -> None:
     args = parse_args()
 
     print("Loading AxBench Concept500 test split ...")
-    test_records = load_axbench_split("test", token=args.hf_token)
+    test_records = load_axbench_split("test", token=args.hf_token, subdir=args.axbench_subdir)
     evaluation_data = build_test_dataset(test_records, args.concept_id)
     dataset_key = f"axbench_concept_{args.concept_id}"
 
