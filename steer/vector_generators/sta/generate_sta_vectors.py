@@ -322,38 +322,14 @@ def generate_sta_vectors(hparams:STAHyperParams, dataset, model = None, dataset_
                                     )
                 caa_vector = caa_vector.to(device)
                 sta_vec = sta_vec.to(device)
-                
-                sta_norm = torch.norm(sta_vec, p=2)
-                caa_norm = torch.norm(caa_vector, p=2)
-                
-                # Check for zero vectors
-                if sta_norm < 1e-8:
-                    print(f"WARNING: STA vector has zero norm (norm={sta_norm:.6f}). This usually means the combined_mask filtered out all features.")
-                    print(f"  - CAA norm: {caa_norm:.6f}")
-                    print(f"  - STA vector shape: {sta_vec.shape}")
-                    print(f"  - Try reducing trim value (currently {trim}) or checking if SAE features are being computed correctly.")
-                    if caa_norm < 1e-8:
-                        print(f"ERROR: Both CAA and STA vectors are zero. Cannot proceed with steering.")
-                        raise ValueError(f"Both CAA and STA vectors are zero for layer {layer}. Check your contrastive pairs and SAE configuration.")
-                    else:
-                        print(f"  - Falling back to CAA vector (STA vector is invalid)")
-                        sta_vec = caa_vector.clone()
-                        multiplier = 1.0
-                elif caa_norm < 1e-8:
-                    print(f"WARNING: CAA vector has zero norm (norm={caa_norm:.6f}). STA vector will not be normalized.")
-                    multiplier = 1.0
-                else:
-                    multiplier = caa_norm / sta_norm
-                
-                final_sta_vec = multiplier * sta_vec
-                print(f"caa_norm:{caa_norm:.6f}  sta_norm:{torch.norm(final_sta_vec, p=2):.6f}  multiplier:{multiplier:.6f}")
-                
+                multiplier = torch.norm(caa_vector, p=2) / torch.norm(sta_vec, p=2)
+                print(f"caa_norm:{caa_vector.norm()}  sta_norm:{(multiplier * sta_vec).norm()}")
                 if args.save_vectors:
                     torch.save(
-                        final_sta_vec,
+                        multiplier * sta_vec,
                         os.path.join(output_dir_sta, f"layer_{layer}_{args.mode}_trim{trim}.pt"),
                     )
-                vectors[f"layer_{layer}_{args.mode}_trim{trim}"] = final_sta_vec
+                vectors[f"layer_{layer}_{args.mode}_trim{trim}"] = multiplier * sta_vec
         else:
             need_train_layers.append(layer)
     if not need_train_layers:
@@ -477,38 +453,14 @@ def generate_sta_vectors(hparams:STAHyperParams, dataset, model = None, dataset_
                                     )
                 caa_vector = caa_vector.to(device)
                 sta_vec = sta_vec.to(device)
-                
-                sta_norm = torch.norm(sta_vec, p=2)
-                caa_norm = torch.norm(caa_vector, p=2)
-                
-                # Check for zero vectors
-                if sta_norm < 1e-8:
-                    print(f"WARNING: STA vector has zero norm (norm={sta_norm:.6f}). This usually means the combined_mask filtered out all features.")
-                    print(f"  - CAA norm: {caa_norm:.6f}")
-                    print(f"  - STA vector shape: {sta_vec.shape}")
-                    print(f"  - Try reducing trim value (currently {trim}) or checking if SAE features are being computed correctly.")
-                    if caa_norm < 1e-8:
-                        print(f"ERROR: Both CAA and STA vectors are zero. Cannot proceed with steering.")
-                        raise ValueError(f"Both CAA and STA vectors are zero for layer {layer}. Check your contrastive pairs and SAE configuration.")
-                    else:
-                        print(f"  - Falling back to CAA vector (STA vector is invalid)")
-                        sta_vec = caa_vector.clone()
-                        multiplier = 1.0
-                elif caa_norm < 1e-8:
-                    print(f"WARNING: CAA vector has zero norm (norm={caa_norm:.6f}). STA vector will not be normalized.")
-                    multiplier = 1.0
-                else:
-                    multiplier = caa_norm / sta_norm
-                
-                final_sta_vec = multiplier * sta_vec
-                print(f"caa_norm:{caa_norm:.6f}  sta_norm:{torch.norm(final_sta_vec, p=2):.6f}  multiplier:{multiplier:.6f}")
-                
+                multiplier = torch.norm(caa_vector, p=2) / torch.norm(sta_vec, p=2)
+                print(f"caa_norm:{caa_vector.norm()}  sta_norm:{(multiplier * sta_vec).norm()}")
                 if args.save_vectors is True:
                     torch.save(
-                        final_sta_vec,
+                        multiplier * sta_vec,
                         os.path.join(output_dir_sta, f"layer_{layer}_{args.mode}_trim{trim}.pt"),
                     )
-                vectors[f"layer_{layer}_{args.mode}_trim{trim}"] = final_sta_vec
+                vectors[f"layer_{layer}_{args.mode}_trim{trim}"] = multiplier * sta_vec
         finally:
             if del_model:
                 model.model.to('cpu')
