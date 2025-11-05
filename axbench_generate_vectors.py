@@ -134,7 +134,7 @@ def generate_caa(
     caa_hparams.torch_dtype = args.torch_dtype
     caa_hparams.layers = args.layers
     caa_hparams.seed = args.seed
-    caa_hparams.steer_vector_output_dir = output_dir
+    caa_hparams.steer_vector_output_dir = os.path.join(output_dir, dataset_name)
     caa_hparams.steer_train_dataset = dataset_name
 
     print("\n=== Generating CAA vectors ===")
@@ -163,7 +163,7 @@ def generate_sta(
     sta_hparams.trims = [args.sta_trim]
     sta_hparams.mode = args.sta_mode
     sta_hparams.seed = args.seed
-    sta_hparams.steer_vector_output_dir = output_dir
+    sta_hparams.steer_vector_output_dir = os.path.join(output_dir, dataset_name)
     sta_hparams.steer_train_dataset = dataset_name
 
     print("\n=== Generating STA vectors ===")
