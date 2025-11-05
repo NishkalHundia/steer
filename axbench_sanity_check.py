@@ -82,6 +82,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Also evaluate negative targets during sanity check.",
     )
+    parser.add_argument(
+        "--combine",
+        action="store_true",
+        help="Additionally evaluate the combination of all specified methods.",
+    )
     return parser.parse_args()
 
 
@@ -132,6 +137,13 @@ def _build_cfg(
     return OmegaConf.create(cfg_dict)
 
 
+def _method_sets(methods: List[str], combine: bool) -> List[List[str]]:
+    combos = [[m] for m in methods]
+    if combine and len(methods) > 1:
+        combos.append(methods)
+    return combos
+
+
 def main() -> None:
     args = parse_args()
 
@@ -170,7 +182,7 @@ def main() -> None:
         f"Evaluating {len(pairs)} contrastive prompts across {len(dataset_keys)} dataset(s)."
     )
 
-    for methods in [args.methods]:
+    for methods in _method_sets(args.methods, args.combine):
         for multiplier in args.multipliers:
             run_name = f"{'_'.join(methods)}_mult{multiplier:g}"
             output_dir = os.path.join(target_dir, run_name)

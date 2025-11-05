@@ -102,6 +102,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="AxBench subdirectory (e.g., '9b/l20') if the dataset is organised by model layer.",
     )
+    parser.add_argument(
+        "--include_negative",
+        action="store_true",
+        help="Evaluate negative targets as a separate dataset as well.",
+    )
     return parser.parse_args()
 
 
@@ -169,6 +174,13 @@ def main() -> None:
     evaluation_data = build_test_dataset(test_records, args.concept_id)
     dataset_key = f"axbench_concept_{args.concept_id}"
 
+    positive_items = [item for item in evaluation_data if item.get("target_type", "positive") != "negative"]
+    negative_items = [item for item in evaluation_data if item.get("target_type") == "negative"]
+
+    eval_sets: Dict[str, List[Dict]] = {dataset_key: positive_items}
+    if args.include_negative and negative_items:
+        eval_sets[f"{dataset_key}_negative"] = negative_items
+
     vector_base = os.path.join(
         args.vector_root,
         sanitize_model_name(args.model_name_or_path),
@@ -179,7 +191,12 @@ def main() -> None:
             f"Vector directory not found: {vector_base}. Generate vectors first."
         )
 
-    print(f"Evaluating on {len(evaluation_data)} test prompts.")
+    print(
+        "Evaluating on {} positive prompts{}.".format(
+            len(positive_items),
+            f" and {len(negative_items)} negative prompts" if args.include_negative and negative_items else "",
+        )
+    )
     method_sets = _method_combinations(args.methods, args.combine)
 
     for method_list in method_sets:
@@ -217,7 +234,7 @@ def main() -> None:
             )
             applier = BaseVectorApplier(cfg)
             applier.apply_vectors()
-            applier.generate({dataset_key: evaluation_data})
+            applier.generate(eval_sets)
             if hasattr(applier.model, "reset_all"):
                 applier.model.reset_all()
 

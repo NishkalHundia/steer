@@ -223,6 +223,7 @@ def build_test_dataset(
         output = row.get("output")
         if not prompt:
             continue
+        label = _infer_label(row) or "positive"
         evaluation_items.append(
             {
                 "input": prompt,
@@ -231,6 +232,7 @@ def build_test_dataset(
                 "category": row.get("category"),
                 "dataset_category": row.get("dataset_category"),
                 "output_concept": row.get("output_concept"),
+                "target_type": label,
             }
         )
 
