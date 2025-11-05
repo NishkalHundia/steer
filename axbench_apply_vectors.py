@@ -107,6 +107,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Evaluate negative targets as a separate dataset as well.",
     )
+    parser.add_argument(
+        "--positive_limit",
+        type=int,
+        default=0,
+        help="Optional limit on number of positive samples (0 = all).",
+    )
+    parser.add_argument(
+        "--negative_limit",
+        type=int,
+        default=0,
+        help="Optional limit on number of negative samples (0 = all).",
+    )
     return parser.parse_args()
 
 
@@ -176,6 +188,11 @@ def main() -> None:
 
     positive_items = [item for item in evaluation_data if item.get("target_type", "positive") != "negative"]
     negative_items = [item for item in evaluation_data if item.get("target_type") == "negative"]
+
+    if args.positive_limit > 0:
+        positive_items = positive_items[: args.positive_limit]
+    if args.negative_limit > 0:
+        negative_items = negative_items[: args.negative_limit]
 
     eval_sets: Dict[str, List[Dict]] = {dataset_key: positive_items}
     if args.include_negative and negative_items:
